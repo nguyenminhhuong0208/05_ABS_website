@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giá cổ phiếu</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<style>
+body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; margin:0; }
+</style>
+</head>
+<body class="min-h-screen">
+<header class="bg-purple-800 text-white shadow-lg py-4 px-6 fixed top-0 w-full z-50">
+    <div class="container mx-auto flex justify-between items-center">
+        <h1 class="text-2xl font-bold">Giá cổ phiếu</h1>
+        <nav class="space-x-4 flex items-center">
+            <a href="main.html" class="text-white hover:text-purple-200">Trang chủ</a>
+            <a href="dashboard.html" class="text-white hover:text-purple-200">Dashboard</a>
+        </nav>
+    </div>
+</header>
+
+<main class="container mx-auto p-6 pt-24 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Biểu đồ nến 2/3 -->
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-lg p-4">
+        <h2 class="text-xl font-bold mb-2">Biểu đồ nến: Mã cổ phiếu XYZ</h2>
+        <div id="candlestick-chart" style="height:500px;"></div>
+    </div>
+
+    <!-- Thông tin cổ phiếu 1/3 -->
+    <div class="bg-white rounded-xl shadow-lg p-4 flex flex-col space-y-4">
+        <h2 class="text-xl font-bold mb-2">Thông tin cổ phiếu XYZ</h2>
+        <div class="text-lg font-semibold">Giá hiện tại: <span id="price">123,000 VND</span></div>
+        <div class="text-lg font-semibold">Tăng/Giảm: <span id="change" class="text-green-600">+2.5%</span></div>
+        <div class="text-lg font-semibold">Lệnh mua: <span id="bid">1000</span></div>
+        <div class="text-lg font-semibold">Lệnh bán: <span id="ask">800</span></div>
+    </div>
+</main>
+
+<script>
+// --- Biểu đồ nến ApexCharts ---
+const candlestickOptions = {
+    series: [{
+        data: [
+            { x: new Date(2025,8,1), y:[120,125,118,123] },
+            { x: new Date(2025,8,2), y:[123,128,122,127] },
+            { x: new Date(2025,8,3), y:[127,130,125,128] },
+            { x: new Date(2025,8,4), y:[128,132,127,130] },
+            { x: new Date(2025,8,5), y:[130,135,128,134] }
+        ]
+    }],
+    chart: { type:'candlestick', height:500 },
+    title: { text:'XYZ', align:'left' },
+    xaxis: { type:'datetime' },
+    yaxis: { tooltip:{enabled:true} }
+};
+const candlestickChart = new ApexCharts(document.querySelector("#candlestick-chart"), candlestickOptions);
+candlestickChart.render();
+
+// --- Update giá cổ phiếu (giả lập) ---
+function updateStockInfo(){
+    const price = Math.floor(Math.random()*5000+120000);
+    const change = (Math.random()*4-2).toFixed(2);
+    document.getElementById("price").innerText = price.toLocaleString() + " VND";
+    const changeEl = document.getElementById("change");
+    changeEl.innerText = (change>0?"+":"") + change + "%";
+    changeEl.className = change>0?"text-green-600":"text-red-600";
+    document.getElementById("bid").innerText = Math.floor(Math.random()*1000+500);
+    document.getElementById("ask").innerText = Math.floor(Math.random()*1000+500);
+}
+setInterval(updateStockInfo,5000);
+updateStockInfo();
+</script>
+</body>
+</html>

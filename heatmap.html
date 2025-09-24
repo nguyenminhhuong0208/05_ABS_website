@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heatmap Thị trường</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+    body {
+        font-family: 'Inter', sans-serif;
+        margin: 0; padding: 0;
+        background-color: #f3f4f6;
+    }
+    #heatmap-container {
+        width: 100%;
+        height: 650px;
+        position: relative;
+    }
+    .tooltip {
+        position: absolute;
+        background: rgba(0,0,0,0.7);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 13px;
+        pointer-events: none;
+        opacity: 0;
+        z-index: 10;
+    }
+    .sector-rect { fill: #f9fafb; stroke: #d1d5db; stroke-width: 1px; rx: 6; ry: 6; }
+    .sector-label-bg { fill: #e5e7eb; stroke: #d1d5db; stroke-width: 1px; }
+    .sector-text { fill: #374151; font-weight: bold; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div id="heatmap-container"></div>
+<div id="tooltip" class="tooltip"></div>
+
+<script>
+// ---------- Data ----------
+const stockFullNames = {
+    "SHB":"Ngân hàng SHB","SSI":"Chứng khoán SSI","VIX":"Chứng khoán VIX","VPB":"Ngân hàng VPB",
+    "VND":"Chứng khoán VNDIRECT","MBB":"Ngân hàng MBB","ACB":"Ngân hàng ACB","TCB":"Ngân hàng TCB",
+    "HDB":"Ngân hàng HDB","EIB":"Ngân hàng EIB","TPB":"Ngân hàng TPB","VIB":"Ngân hàng VIB",
+    "VCB":"Ngân hàng VCB","MSB":"Ngân hàng MSB","HCM":"Chứng khoán HCM","STB":"Ngân hàng STB",
+    "DIG":"Đầu tư Xây dựng","PDR":"Bất động sản Phát Đạt","DXG":"Tập đoàn Đất Xanh","HDG":"Tập đoàn Hà Đô",
+    "TCH":"Đầu tư Tài chính Hoàng Huy","NVL":"Tập đoàn No Va","KHG":"Khang Điền House","SCR":"Địa ốc Sài Gòn Thương Tín",
+    "KBC":"Đô thị Kinh Bắc","LDG":"Đầu tư LDG","HDC":"Nhà Bà Rịa Vũng Tàu","VRE":"Vincom Retail",
+    "HPG":"Tập đoàn Hòa Phát","NKG":"Thép Nam Kim","HSG":"Tập đoàn Hoa Sen","POM":"Thép Pomina","SMC":"SMC",
+    "CII":"Đầu tư Hạ tầng CII","VCG":"Xuất nhập khẩu VCG","GEG":"Điện lực Gia Lai","VSC":"Container Việt Nam","LSS":"Mía đường Sơn La","FPT":"FPT"
+};
+
+const sectorsData = [
+    { name:"Tài chính", stocks:["SHB","SSI","VIX","VPB","VND","MBB","ACB","TCB","HDB","EIB","TPB","VIB","VCB","HCM","MSB","STB"] },
+    { name:"Bất động sản", stocks:["DIG","PDR","DXG","HDG","TCH","NVL","KHG","SCR","KBC","LDG","HDC","VRE"] },
+    { name:"Vật liệu cơ bản", stocks:["HPG","NKG","HSG","POM","SMC"] },
+    { name:"Công nghiệp", stocks:["CII","VCG","GEG","VSC","LSS","FPT"] }
+];
+
+function generateRandomData() {
+    return sectorsData.map(sector=>{
+        const children = sector.stocks.map(stock=>{
+            const change = +(Math.random()*10-5).toFixed(2);
+            const price = +(Math.random()*90000+10000).toFixed(0);
+            const volume = Math.floor(Math.random()*9000000+100000);
+            const full_name = stockFullNames[stock] || stock;
+            return { name: stock, full_name, change, price, volume };
+        });
+        const sectorValue = children.reduce((sum,d)=>sum+d.volume,0);
+        return { name: sector.name, value: sectorValue, children };
+    });
+}
+
+// ---------- Draw Heatmap ----------
+const tooltip = d3.select("#tooltip");
+const colorScale = d3.scaleLinear().domain([-5,0,5]).range(["#dc2626","#e5e7eb","#22c55e"]).clamp(true);
+
+function drawHeatmap(data){
+    const container = d3.select("#heatmap-container");
+    const width = container.node().clientWidth;
+    const height = container.node().clientHeight;
+    container.select("svg").remove();
+
+    const svg = container.append("svg")
+        .attr("width","100%")
+        .attr("height","100%")
+        .attr("viewBox",`0 0 ${width} ${height}`)
+        .attr("preserveAspectRatio","xMidYMid meet");
+
+    // Root hierarchy
+    const root = d3.hierarchy({ children: data })
+        .sum(d=>d.volume||d.value)
+        .sort((a,b)=>b.value - a.value);
+
+    const treemapLayout = d3.treemap().size([width,height]).paddingOuter(6).paddingInner(2);
+    treemapLayout(root);
+
+    // Sectors
+    const sectors = svg.selectAll(".sector-group").data(root.children).join("g")
+        .attr("class","sector-group")
+        .attr("transform",d=>`translate(${d.x0},${d.y0})`);
+
+    sectors.append("rect")
+        .attr("class","sector-rect")
+        .attr("width",d=>d.x1-d.x0)
+        .attr("height",d=>d.y1-d.y0);
+
+    sectors.append("rect")
+        .attr("class","sector-label-bg")
+        .attr("x",0).attr("y",0)
+        .attr("width",d=>d.x1-d.x0).attr("height",24);
+
+    sectors.append("text")
+        .attr("class","sector-text")
+        .attr("x",12).attr("y",16)
+        .text(d=>d.data.name);
+
+    // Stocks inside each sector
+    root.children.forEach(sectorNode=>{
+        const sectorWidth = sectorNode.x1 - sectorNode.x0;
+        const sectorHeight = sectorNode.y1 - sectorNode.y0;
+
+        const innerRoot = d3.hierarchy({ children: sectorNode.data.children })
+            .sum(d=>d.volume)
+            .sort((a,b)=>b.value - a.value);
+
+        const innerTreemap = d3.treemap().size([sectorWidth, sectorHeight-24]).padding(2).paddingTop(0);
+        innerTreemap(innerRoot);
+
+        const stocks = svg.selectAll(`.stock-${sectorNode.data.name.replace(/\s/g,'-')}`)
+            .data(innerRoot.leaves()).join("g")
+            .attr("class",d=>`stock-${sectorNode.data.name.replace(/\s/g,'-')}`)
+            .attr("transform",d=>`translate(${sectorNode.x0 + d.x0},${sectorNode.y0 + 24 + d.y0})`);
+
+        stocks.append("rect")
+            .attr("width",d=>d.x1-d.x0)
+            .attr("height",d=>d.y1-d.y0)
+            .attr("fill",d=>colorScale(d.data.change))
+            .attr("rx",3).attr("ry",3)
+            .attr("stroke","#fff")
+            .attr("stroke-width",0.5)
+            .on("mouseover",(event,d)=>{
+                tooltip.style("opacity",1).html(
+                    `<b>${d.data.full_name} (${d.data.name})</b><br>Giá: ${d.data.price} VND<br>Volume: ${d.data.volume.toLocaleString()}<br>Change: ${d.data.change>0?'+':''}${d.data.change}%`
+                );
+            }).on("mousemove",(event)=>{ tooltip.style("left", (event.pageX+10)+"px").style("top",(event.pageY-20)+"px"); })
+            .on("mouseout",()=>{ tooltip.style("opacity",0); });
+
+        stocks.append("text")
+            .attr("x",3).attr("y",12)
+            .text(d=>d.data.name)
+            .attr("font-size","10px")
+            .attr("fill","white")
+            .attr("pointer-events","none");
+    });
+}
+
+let currentData = generateRandomData();
+drawHeatmap(currentData);
+setInterval(()=>{ currentData = generateRandomData(); drawHeatmap(currentData); }, 10000);
+window.addEventListener("resize",()=>{ drawHeatmap(currentData); });
+
+</script>
+</body>
+</html>
